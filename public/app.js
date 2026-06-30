@@ -1,5 +1,6 @@
 // UI + Socket layer — imports the 3D engine from game.js
-import { startGame, addOtherPlayer, removeOtherPlayer, moveOtherPlayer } from './game.js';
+import * as THREE from 'three';
+import { startGame, addOtherPlayer, removeOtherPlayer, moveOtherPlayer, buildBoxChar } from './game.js';
 
 // ==================== STATE ====================
 const S = {
@@ -131,7 +132,10 @@ function showSetup(mode) {
 }
 window.showSetup = showSetup;
 
-function closeSetup() { document.getElementById('setup-modal').classList.add('hidden'); }
+function closeSetup() {
+  _stopPvAnim();
+  document.getElementById('setup-modal').classList.add('hidden');
+}
 window.closeSetup = closeSetup;
 
 async function enterRoom() {
@@ -219,7 +223,48 @@ function _syncSwatches() {
   }
 }
 
-// 2D CSS sprite for the preview panel only
+// ==================== 3D CHARACTER PREVIEW ====================
+let _pvRenderer = null, _pvScene = null, _pvCamera = null;
+let _pvChar = null, _pvAnimId = null;
+
+function _initPvRenderer(canvas) {
+  _pvRenderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  _pvRenderer.setSize(120, 150);
+  _pvRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  _pvRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  _pvRenderer.toneMappingExposure = 1.0;
+
+  _pvScene = new THREE.Scene();
+  _pvScene.background = new THREE.Color(0x1c1508);
+
+  _pvCamera = new THREE.PerspectiveCamera(40, 120 / 150, 0.1, 20);
+  _pvCamera.position.set(0, 1.5, 3.2);
+  _pvCamera.lookAt(0, 1.0, 0);
+
+  _pvScene.add(new THREE.AmbientLight(0xfff4e8, 2.5));
+  const key = new THREE.DirectionalLight(0xffe8cc, 2.2);
+  key.position.set(2, 4, 3); _pvScene.add(key);
+  const fill = new THREE.DirectionalLight(0xaaccff, 0.8);
+  fill.position.set(-2, 1, -1); _pvScene.add(fill);
+}
+
+function _startPvAnim() {
+  if (_pvAnimId) return;
+  let angle = 0;
+  function loop() {
+    _pvAnimId = requestAnimationFrame(loop);
+    angle += 0.012;
+    if (_pvChar) _pvChar.rotation.y = angle;
+    _pvRenderer.render(_pvScene, _pvCamera);
+  }
+  loop();
+}
+
+function _stopPvAnim() {
+  if (_pvAnimId) { cancelAnimationFrame(_pvAnimId); _pvAnimId = null; }
+}
+
+// 2D CSS sprite — used only in chat messages
 function buildCharSprite(char) {
   const { skin, hairColor, hairStyle, outfit, accessory } = char;
   const accMap = {
@@ -264,8 +309,13 @@ function buildCharSprite(char) {
 }
 
 function updatePreview() {
-  const el = document.getElementById('preview-sprite');
-  if (el) el.innerHTML = buildCharSprite(S.user.character);
+  const canvas = document.getElementById('char-canvas');
+  if (!canvas) return;
+  if (!_pvRenderer) _initPvRenderer(canvas);
+  if (_pvChar) { _pvScene.remove(_pvChar); _pvChar = null; }
+  _pvChar = buildBoxChar(S.user.character);
+  _pvScene.add(_pvChar);
+  _startPvAnim();
 }
 window.updatePreview = updatePreview;
 

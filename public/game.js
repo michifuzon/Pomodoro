@@ -33,7 +33,7 @@ export async function startGame(socket, roomId, user) {
   _socket = socket; _roomId = roomId; _user = user;
   try {
     _initRenderer();
-    _buildScene();
+    await _buildScene();
     await _spawnPlayer();
     _setupInput();
     _createSitHint();
@@ -152,66 +152,125 @@ function _buildLights() {
 
 // ==================== HOUSE ====================
 
-function _buildScene() { _buildLights(); _buildHouse(); }
+// Room model path — user places their downloaded GLB here
+const ROOM_URL = '/models/room.glb';
+
+async function _buildScene() {
+  _buildLights();
+  const loaded = await _tryLoadRoom();
+  if (!loaded) _buildHouse();
+}
+
+async function _tryLoadRoom() {
+  try {
+    const gltf = await loader.loadAsync(ROOM_URL);
+    const room = gltf.scene;
+
+    // Auto-scale: fit the model to ~22 units
+    const box = new THREE.Box3().setFromObject(room);
+    const size = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.z);
+    const scale = 22 / maxDim;
+    room.scale.setScalar(scale);
+
+    // Re-compute after scaling and seat floor at y=0
+    box.setFromObject(room);
+    room.position.y = -box.min.y;
+
+    room.traverse(c => {
+      if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }
+    });
+    scene.add(room);
+
+    // Generic sit / exploration points scattered inside the room
+    [[-4,-3],[-4,1],[0,0],[4,-3],[4,1],[0,4]].forEach(([x,z]) =>
+      sitPoints.push({ pos: new THREE.Vector3(x, 0, z), ry: 0 })
+    );
+
+    // Candle flicker light (always present)
+    candlePointLight = new THREE.PointLight(0xff9933, 1.4, 5, 2);
+    candlePointLight.position.set(-3, 1.0, -2); scene.add(candlePointLight);
+
+    const box2 = new THREE.Box3().setFromObject(room);
+    const rSize = box2.getSize(new THREE.Vector3());
+    console.log(`✅ Sala cargada — tamaño final: ${rSize.x.toFixed(1)} × ${rSize.z.toFixed(1)} u`);
+    return true;
+  } catch {
+    console.info('📦 room.glb no encontrado — generando sala procedural');
+    return false;
+  }
+}
 
 function _buildHouse() {
-  const W = 20, D = 18, hw = 10, hd = 9;
+  // Open loft — no exterior or interior walls, much more spacious
+  const FW = 30, FD = 24, hw = 15, hd = 12;
 
-  // Dark semi-transparent walls — visually subtle, like borders in the reference image
-  const wallM = new THREE.MeshStandardMaterial({ color: 0x1a1525, roughness: 0.95, transparent: true, opacity: 0.72 });
-  // Warm golden wood floor throughout (like the reference image)
-  const floorM = mat(0xc8966c, 0.72);
+  // Main floor — warm golden oak wood
+  const floorM = mat(0xd0a068, 0.68);
+  addPlane(FW, FD, floorM, 0, 0, 0, -Math.PI / 2, 0);
 
-  // Outer floor
-  addPlane(W, D, floorM, 0, 0, 0, -Math.PI/2, 0);
+  // Wood plank lines (subtle grain)
+  const plankM = mat(0xb88848, 0.82);
+  for (let x = -hw + 0.7; x < hw; x += 0.9)
+    addBox(0.032, 0.001, FD, x, 0.001, 0, plankM);
 
-  // Outer walls (reduced height to 2.8 for less visual obstruction)
-  const WH = 2.8;
-  addBox(W,   WH, 0.22, 0,   WH/2, -hd, wallM);
-  addBox(W,   WH, 0.22, 0,   WH/2,  hd, wallM);
-  addBox(0.22, WH,  D, -hw, WH/2,   0, wallM);
-  addBox(0.22, WH,  D,  hw, WH/2,   0, wallM);
+  // Floor border — very thin dark edge, no walls
+  const edgeM = mat(0x140e04, 0.95);
+  addBox(FW + 0.3, 0.055, 0.13, 0, 0.027, -hd, edgeM);
+  addBox(FW + 0.3, 0.055, 0.13, 0, 0.027,  hd, edgeM);
+  addBox(0.13, 0.055, FD, -hw, 0.027, 0, edgeM);
+  addBox(0.13, 0.055, FD,  hw, 0.027, 0, edgeM);
 
-  // Thin dark baseboard trim
-  const trM = mat(0x111018, 0.6);
-  addBox(W, 0.08, 0.1, 0, 0.04, -hd+0.11, trM);
-  addBox(W, 0.08, 0.1, 0, 0.04,  hd-0.11, trM);
-  addBox(0.1, 0.08, D, -hw+0.11, 0.04, 0, trM);
-  addBox(0.1, 0.08, D,  hw-0.11, 0.04, 0, trM);
+  // Bathroom tile area (bottom-right) — different floor = subtle room definition
+  addPlane(8, 7, mat(0xe6eded, 0.07, 0.06), 8, 0.003, 7.5, -Math.PI / 2, 0);
 
-  // Interior walls
-  addBox(0.22, WH, 7.4, 0, WH/2, -4.7, wallM);
-  addBox(0.22, WH, 7.4, 0, WH/2,  4.7, wallM);
-  addBox(8.4, WH, 0.22, -5.8, WH/2, 0, wallM);
-  addBox(8.4, WH, 0.22,  5.8, WH/2, 0, wallM);
+  // Glass privacy screen for bathroom (transparent, decorative)
+  const glassM = new THREE.MeshStandardMaterial({
+    color: 0x88aacc, roughness: 0.05, metalness: 0.1,
+    transparent: true, opacity: 0.28
+  });
+  addBox(0.06, 2.0, 7, 4.1, 1.0, 7.5, glassM);
+  addBox(7.7, 2.0, 0.06, 7.95, 1.0, 4.1, glassM);
+  // Glass frame
+  const frameM = mat(0x888888, 0.2, 0.9);
+  addBox(0.04, 2.02, 7, 4.1, 1.01, 7.5, frameM);
+  addBox(7.7, 2.02, 0.04, 7.95, 1.01, 4.1, frameM);
 
-  // Round rugs — like the golden/cream rugs in the reference image
-  _addRoundRug(-5.2, -4.8, 2.1, 0xcfb060);  // living room round rug (gold)
-  _addRoundRug( 5.0, -4.5, 1.8, 0xd4c080);  // dining round rug (light gold)
-  _addRoundRug(-5.0,  5.0, 1.6, 0x8899cc);  // study area rug (blue)
-  // Bathroom tile floor
-  addPlane(9, 8.5, mat(0xe4eaeb, 0.15, 0.08), 5, 0.002, 4.5, -Math.PI/2, 0);
+  // Zone rugs — define living areas without walls
+  _addRoundRug(-8,  -5.5, 3.0, 0xcfb060); // living room (warm gold)
+  _addRoundRug( 1,  -7.5, 2.4, 0xddd5a8); // dining (cream)
+  _addRoundRug(-8,   6.0, 2.6, 0x7a8eaa); // bedroom (soft blue)
+  _addRoundRug( 8,   1.0, 2.2, 0xaa9878); // study (warm beige)
 
-  // Bathroom wall tiles
-  addBox(0.06, WH-0.4, 8.5, hw-0.23, WH/2, 4.5, mat(0xc2d5d5, 0.12, 0.12));
-  addBox(9.5, WH-0.4, 0.06, 5, WH/2, hd-0.23, mat(0xc2d5d5, 0.12, 0.12));
-
-  // Windows
-  _buildWindow(-hw+0.12, 2.0, -6.5, true);
-  _buildWindow(-5, 2.0, hd-0.12, false);
+  // Decorative elements along the edges (replace windows)
+  _buildEdgePlants();
 
   _buildLivingRoom();
   _buildDiningRoom();
+  _buildKitchen();
   _buildStudy();
+  _buildBedroom();
   _buildBathroom();
 }
 
 function _addRoundRug(x, z, radius, color) {
-  const rug = new THREE.Mesh(new THREE.CircleGeometry(radius, 40), mat(color, 0.92));
+  const rug = new THREE.Mesh(new THREE.CircleGeometry(radius, 48), mat(color, 0.90));
   rug.rotation.x = -Math.PI / 2;
   rug.position.set(x, 0.003, z);
   rug.receiveShadow = true;
   scene.add(rug);
+}
+
+function _buildEdgePlants() {
+  // Perimeter plants & decor that create a natural boundary instead of walls
+  const spots = [
+    [-14, -11], [-14, -6], [-14, -1], [-14, 4], [-14, 9],
+    [ 14, -10], [ 14, -5], [ 14,  0], [ 14,  5], [ 14, 10],
+    [-8,  -11], [ 0, -11], [  6, -11], [ 12, -11],
+    [-10,  11], [-4,  11], [  2,  11],
+  ];
+  const sizes = [1.1, 0.85, 1.2, 0.9, 1.05, 0.8, 1.3, 0.95, 1.0, 0.88, 1.15, 0.92, 1.25];
+  spots.forEach(([x, z], i) => _buildPlant(x, 0, z, sizes[i % sizes.length]));
 }
 
 function _buildWindow(x, y, z, isLeftWall) {
@@ -397,6 +456,58 @@ function _buildBathroom() {
   _buildPlant(1.2, 0, 0.4, 0.7);
 }
 
+// ==================== KITCHEN ====================
+
+function _buildKitchen() {
+  // Kitchen island counter (right side, back)
+  addBox(2.8, 0.92, 1.1, 8, 0.46, -8.5, mat(0xf0ece4, 0.4, 0.05));
+  addBox(2.9, 0.05, 1.2, 8, 0.94, -8.5, mat(0xd4c8a8, 0.25, 0.1));
+
+  // Bar stools around island
+  for (const dx of [-0.85, 0, 0.85])
+    _buildChair(8 + dx, 0, -7.2, 0);
+
+  // Overhead pendant for island
+  addBox(0.045, 0.045, 0.045, 8, 2.2, -8.5, mat(0xffee88, 0.1, 0.9));
+  addBox(0.01, 1.5, 0.01, 8, 3.3, -8.5, mat(0x111111, 0.9));
+  scene.add(Object.assign(new THREE.PointLight(0xfff0cc, 2.8, 6, 1.5), { position: new THREE.Vector3(8, 2.2, -8.5) }));
+
+  // Back counter against edge
+  addBox(4.0, 0.88, 0.5, 10, 0.44, -10.8, mat(0x6b4c28, 0.7));
+  addBox(4.0, 0.04, 0.52, 10, 0.9, -10.8, mat(0xeeeeee, 0.1, 0.05));
+
+  // Small shelf
+  addBox(2.5, 0.04, 0.28, 8, 1.8, -10.7, mat(0x8b6030, 0.7));
+  addBox(2.5, 0.04, 0.28, 8, 2.3, -10.7, mat(0x8b6030, 0.7));
+
+  // Plants on back counter top
+  _buildPlant(9.2, 0.9, -10.7, 0.55);
+  _buildPlant(11.2, 0, -9.5, 1.0);
+  _buildPlant(5.8, 0, -10.5, 0.88);
+}
+
+// ==================== BEDROOM ====================
+
+function _buildBedroom() {
+  // Bed (left side, positive z zone)
+  _buildBed(-8, 0, 6.5);
+  sitPoints.push({ pos: new THREE.Vector3(-8.5, 0, 6.5), ry: Math.PI / 2 });
+
+  // Nightstand
+  addBox(0.48, 0.44, 0.44, -5.8, 0.22, 5.8, mat(0x4a2c10, 0.8));
+  const nsShade = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.18, 8, 1, true), mat(0xf5e8d0, 0.6));
+  nsShade.position.set(-5.8, 0.57, 5.8); scene.add(nsShade);
+  const nsGlow = new THREE.PointLight(0xffe8aa, 1.0, 3, 2);
+  nsGlow.position.set(-5.8, 0.65, 5.8); scene.add(nsGlow);
+
+  // Dresser / wardrobe
+  addBox(0.5, 1.8, 1.4, -13.2, 0.9, 7.5, mat(0x6b4c28, 0.65));
+  addBox(0.52, 1.82, 1.42, -13.2, 0.91, 7.5, mat(0x3a2008, 0.9, 0.0));
+
+  _buildPlant(-12, 0, 9.5, 1.2);
+  _buildPlant(-5.5, 0, 9.5, 0.85);
+}
+
 // ==================== FURNITURE ====================
 
 function _buildCouch(x, y, z, ry) {
@@ -580,6 +691,8 @@ function _buildPlant(x, y, z, s = 1.0) {
 }
 
 // ==================== CHARACTER ====================
+
+export function buildBoxChar(char = {}) { return _buildBoxChar(char); }
 
 function _buildBoxChar(char = {}) {
   const g = new THREE.Group();
@@ -930,8 +1043,8 @@ function _updateMovement(dt) {
   if (moving) {
     const len = Math.hypot(dx, dz);
     dx /= len; dz /= len;
-    playerGroup.position.x = THREE.MathUtils.clamp(playerGroup.position.x + dx*SPEED*dt, -9.6, 9.6);
-    playerGroup.position.z = THREE.MathUtils.clamp(playerGroup.position.z + dz*SPEED*dt, -8.6, 8.6);
+    playerGroup.position.x = THREE.MathUtils.clamp(playerGroup.position.x + dx*SPEED*dt, -13.5, 13.5);
+    playerGroup.position.z = THREE.MathUtils.clamp(playerGroup.position.z + dz*SPEED*dt, -10.5, 10.5);
     playerGroup.rotation.y = THREE.MathUtils.lerp(playerGroup.rotation.y, Math.atan2(dx, dz), 0.2);
     if (!isWalking) {
       isWalking = true;

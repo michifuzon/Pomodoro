@@ -13,46 +13,30 @@
 
 <!-- ===================== LANDING ===================== -->
 <div id="landing" class="hud-layer active">
-  <div class="landing-scene">
-    <div class="ls-window"><div class="ls-sky" id="ls-sky"></div><div class="ls-rain" id="ls-rain"></div></div>
-    <div class="ls-shelf">
-      <div class="ls-book" style="--bh:58px;--bc:#7B3A3A"></div>
-      <div class="ls-book" style="--bh:70px;--bc:#2E5B32"></div>
-      <div class="ls-book" style="--bh:50px;--bc:#4A1580"></div>
-      <div class="ls-book" style="--bh:64px;--bc:#BF4810"></div>
-      <div class="ls-book" style="--bh:54px;--bc:#0D479A"></div>
-      <div class="ls-shelf-plant">🌱</div>
-    </div>
-    <div class="ls-desk">
-      <div class="ls-lamp"><div class="ls-lamp-head"></div><div class="ls-lamp-arm"></div><div class="ls-lamp-glow"></div></div>
-      <div class="ls-mug">☕</div>
-    </div>
-    <div class="ls-candle"><div class="ls-flame"></div><div class="ls-wax"></div></div>
-    <div class="ls-cat">🐱</div>
-    <div class="ls-particles" id="ls-particles"></div>
+  <div class="landing-bg">
+    <div class="landing-glow g1"></div>
+    <div class="landing-glow g2"></div>
+    <div class="landing-particles" id="ls-particles"></div>
   </div>
-  <div class="landing-overlay">
+  <div class="landing-content">
     <div class="landing-card">
       <div class="brand">
         <span class="brand-icon">☕</span>
         <h1>CozyStudy</h1>
-        <p>Tu sala de estudio en 3D</p>
+        <p>Estudiá en una sala compartida, con ambiente y música</p>
       </div>
       <div class="landing-actions">
-        <div class="action-box">
-          <p class="action-label">🏠 Crear sala nueva</p>
-          <button class="btn btn-primary" onclick="showSetup('create')">Crear sala ✨</button>
-        </div>
-        <div class="action-sep">o</div>
-        <div class="action-box">
-          <p class="action-label">🚪 Unirse con código</p>
-          <div class="join-row">
-            <input type="text" id="code-input" placeholder="Ej: ABC123" maxlength="6"
-              oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')showSetup('join')">
-            <button class="btn btn-secondary" onclick="showSetup('join')">Unirse →</button>
-          </div>
+        <button class="btn btn-primary btn-wide" onclick="showSetup('create')">
+          Crear sala nueva
+        </button>
+        <div class="action-sep">o ingresá un código</div>
+        <div class="join-row">
+          <input type="text" id="code-input" placeholder="ABC123" maxlength="6"
+            oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')showSetup('join')">
+          <button class="btn btn-secondary" onclick="showSetup('join')">Entrar →</button>
         </div>
       </div>
+      <p class="landing-hint">WASD · Pomodoro timer · Chat · Música lofi</p>
     </div>
   </div>
 </div>
@@ -68,7 +52,7 @@
       <div class="setup-grid">
         <div class="char-preview-col">
           <div class="char-preview-box">
-            <div class="char-preview-inner"><div id="preview-sprite" class="preview-scale"></div></div>
+            <canvas id="char-canvas" width="120" height="150"></canvas>
           </div>
           <div id="preview-name" class="preview-name-tag">Tu personaje</div>
           <input type="text" id="char-name" class="name-input" placeholder="¿Cómo te llamás?" maxlength="20">
