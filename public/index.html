@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CozyStudy ☕</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Three.js canvas (always present, hidden until room entered) -->
+<canvas id="game-canvas"></canvas>
+
+<!-- ===================== LANDING ===================== -->
+<div id="landing" class="hud-layer active">
+  <div class="landing-scene">
+    <div class="ls-window"><div class="ls-sky" id="ls-sky"></div><div class="ls-rain" id="ls-rain"></div></div>
+    <div class="ls-shelf">
+      <div class="ls-book" style="--bh:58px;--bc:#7B3A3A"></div>
+      <div class="ls-book" style="--bh:70px;--bc:#2E5B32"></div>
+      <div class="ls-book" style="--bh:50px;--bc:#4A1580"></div>
+      <div class="ls-book" style="--bh:64px;--bc:#BF4810"></div>
+      <div class="ls-book" style="--bh:54px;--bc:#0D479A"></div>
+      <div class="ls-shelf-plant">🌱</div>
+    </div>
+    <div class="ls-desk">
+      <div class="ls-lamp"><div class="ls-lamp-head"></div><div class="ls-lamp-arm"></div><div class="ls-lamp-glow"></div></div>
+      <div class="ls-mug">☕</div>
+    </div>
+    <div class="ls-candle"><div class="ls-flame"></div><div class="ls-wax"></div></div>
+    <div class="ls-cat">🐱</div>
+    <div class="ls-particles" id="ls-particles"></div>
+  </div>
+  <div class="landing-overlay">
+    <div class="landing-card">
+      <div class="brand">
+        <span class="brand-icon">☕</span>
+        <h1>CozyStudy</h1>
+        <p>Tu sala de estudio en 3D</p>
+      </div>
+      <div class="landing-actions">
+        <div class="action-box">
+          <p class="action-label">🏠 Crear sala nueva</p>
+          <button class="btn btn-primary" onclick="showSetup('create')">Crear sala ✨</button>
+        </div>
+        <div class="action-sep">o</div>
+        <div class="action-box">
+          <p class="action-label">🚪 Unirse con código</p>
+          <div class="join-row">
+            <input type="text" id="code-input" placeholder="Ej: ABC123" maxlength="6"
+              oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')showSetup('join')">
+            <button class="btn btn-secondary" onclick="showSetup('join')">Unirse →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SETUP MODAL ===================== -->
+<div id="setup-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-top">
+      <h2>Armá tu personaje 🎨</h2>
+      <button class="close-btn" onclick="closeSetup()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="setup-grid">
+        <div class="char-preview-col">
+          <div class="char-preview-box">
+            <div class="char-preview-inner"><div id="preview-sprite" class="preview-scale"></div></div>
+          </div>
+          <div id="preview-name" class="preview-name-tag">Tu personaje</div>
+          <input type="text" id="char-name" class="name-input" placeholder="¿Cómo te llamás?" maxlength="20">
+        </div>
+        <div class="char-opts-col">
+          <div class="opt-row">
+            <label>Tono de piel</label>
+            <div class="swatches">
+              <div class="sw selected" data-t="skin" data-v="#FDBCB4" style="background:#FDBCB4"></div>
+              <div class="sw" data-t="skin" data-v="#E8A87C" style="background:#E8A87C"></div>
+              <div class="sw" data-t="skin" data-v="#D4956A" style="background:#D4956A"></div>
+              <div class="sw" data-t="skin" data-v="#8D5524" style="background:#8D5524"></div>
+              <div class="sw" data-t="skin" data-v="#4A2311" style="background:#4A2311"></div>
+            </div>
+          </div>
+          <div class="opt-row">
+            <label>Cabello</label>
+            <div class="chips">
+              <div class="chip selected" data-t="hairStyle" data-v="short">Corto</div>
+              <div class="chip" data-t="hairStyle" data-v="long">Largo</div>
+              <div class="chip" data-t="hairStyle" data-v="bun">Rodete</div>
+              <div class="chip" data-t="hairStyle" data-v="curly">Rizado</div>
+            </div>
+          </div>
+          <div class="opt-row">
+            <label>Color de cabello</label>
+            <div class="swatches">
+              <div class="sw selected" data-t="hairColor" data-v="#1C0A00" style="background:#1C0A00"></div>
+              <div class="sw" data-t="hairColor" data-v="#5C3317" style="background:#5C3317"></div>
+              <div class="sw" data-t="hairColor" data-v="#C19A6B" style="background:#C19A6B"></div>
+              <div class="sw" data-t="hairColor" data-v="#FFD700" style="background:#FFD700"></div>
+              <div class="sw" data-t="hairColor" data-v="#E75480" style="background:#E75480"></div>
+              <div class="sw" data-t="hairColor" data-v="#9B59B6" style="background:#9B59B6"></div>
+              <div class="sw" data-t="hairColor" data-v="#636363" style="background:#636363"></div>
+              <div class="sw" data-t="hairColor" data-v="#E8E8E8" style="background:#E8E8E8;border:1px solid #999"></div>
+            </div>
+          </div>
+          <div class="opt-row">
+            <label>Ropa</label>
+            <div class="swatches">
+              <div class="sw selected" data-t="outfit" data-v="#5C6BC0" style="background:#5C6BC0"></div>
+              <div class="sw" data-t="outfit" data-v="#EF5350" style="background:#EF5350"></div>
+              <div class="sw" data-t="outfit" data-v="#43A047" style="background:#43A047"></div>
+              <div class="sw" data-t="outfit" data-v="#FF8A65" style="background:#FF8A65"></div>
+              <div class="sw" data-t="outfit" data-v="#AB47BC" style="background:#AB47BC"></div>
+              <div class="sw" data-t="outfit" data-v="#26C6DA" style="background:#26C6DA"></div>
+              <div class="sw" data-t="outfit" data-v="#FFCA28" style="background:#FFCA28"></div>
+              <div class="sw" data-t="outfit" data-v="#78909C" style="background:#78909C"></div>
+            </div>
+          </div>
+          <div class="opt-row">
+            <label>Accesorio</label>
+            <div class="chips">
+              <div class="chip selected" data-t="accessory" data-v="none">Ninguno</div>
+              <div class="chip" data-t="accessory" data-v="glasses">Anteojos 👓</div>
+              <div class="chip" data-t="accessory" data-v="hat">Gorra 🧢</div>
+              <div class="chip" data-t="accessory" data-v="headphones">Auriculares 🎧</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="timer-cfg">
+        <h3>⏱️ Tu Pomodoro</h3>
+        <div class="timer-cfg-row">
+          <div class="tcfg"><label>📚 Estudio (min)</label><input type="number" id="study-min" value="25" min="5" max="90"></div>
+          <div class="tcfg-sep">—</div>
+          <div class="tcfg"><label>☕ Descanso (min)</label><input type="number" id="break-min" value="5" min="1" max="30"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary btn-wide" onclick="enterRoom()">Entrar a la sala 🚀</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== GAME HUD ===================== -->
+<div id="game-hud" class="hud-layer hidden">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="tb-left">
+      <div class="room-badge"><span class="room-dot"></span><span id="room-code-show">------</span></div>
+      <button class="tb-btn" onclick="copyLink()">🔗 Compartir</button>
+    </div>
+    <div class="tb-center">
+      <button class="music-btn" id="music-btn" onclick="toggleMusic()">🎵 Música</button>
+      <div class="music-panel hidden" id="music-panel">
+        <div class="music-tracks">
+          <button class="track-btn active" onclick="selectTrack(0,this)">☕ Lofi Chill</button>
+          <button class="track-btn" onclick="selectTrack(1,this)">🎷 Jazz Café</button>
+          <button class="track-btn" onclick="selectTrack(2,this)">🌧️ Rain</button>
+          <button class="track-btn" onclick="selectTrack(3,this)">🎹 Piano</button>
+        </div>
+        <iframe id="yt-frame" src="" width="280" height="158" frameborder="0"
+          allow="autoplay; encrypted-media; fullscreen" allowfullscreen title="Música"></iframe>
+      </div>
+    </div>
+    <div class="tb-right">
+      <span id="online-count">👥 1 en sala</span>
+    </div>
+  </div>
+
+  <!-- Movement hint -->
+  <div class="move-hint">WASD / Flechas para mover</div>
+
+  <!-- Pomodoro card -->
+  <div class="pom-card">
+    <div class="pom-phase" id="pom-phase">📚 Estudiando</div>
+    <div class="pom-time" id="pom-time">25:00</div>
+    <div class="pom-btns">
+      <button class="pom-btn start-btn" onclick="startTimer()">▶ Iniciar</button>
+      <button class="pom-btn" onclick="pauseTimer()">⏸</button>
+      <button class="pom-btn" onclick="resetTimer()">↺</button>
+    </div>
+    <div class="pom-sessions">
+      <span id="pom-label">Sesión 1 · 1/4</span>
+      <div class="pom-dots" id="pom-dots">
+        <div class="pom-dot"></div><div class="pom-dot"></div>
+        <div class="pom-dot"></div><div class="pom-dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Sidebar -->
+  <div class="chat-side hidden" id="chat-side">
+    <div class="chat-head"><span>💬 Chat</span><button onclick="closeChat()">×</button></div>
+    <div class="chat-msgs" id="chat-msgs"></div>
+    <div class="chat-input">
+      <input type="text" id="msg-input" placeholder="Escribe..." maxlength="200"
+        onkeydown="if(event.key==='Enter')sendMsg()">
+      <button onclick="sendMsg()">↑</button>
+    </div>
+  </div>
+  <button class="chat-fab" id="chat-fab" onclick="openChat()">
+    💬<span class="notif-dot hidden" id="notif-dot"></span>
+  </button>
+</div>
+
+<!-- Toast -->
+<div class="toast hidden" id="toast"></div>
+
+<!-- Three.js served locally from node_modules (no CDN dependency) -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "/three/build/three.module.js",
+    "three/addons/": "/three/examples/jsm/"
+  }
+}
+</script>
+<script src="/socket.io/socket.io.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
